@@ -59,7 +59,7 @@ music-dashboard/
 │   └── song_data.csv           # Raw dataset (13,051 Spotify tracks)
 │
 ├── notebooks/
-│   └── 01_data_exploration.ipynb  # EDA and function testing
+│   └── data_exploration.ipynb  # EDA and function testing
 │
 ├── src/
 │   ├── load_data.py            # Data cleaning and feature engineering
