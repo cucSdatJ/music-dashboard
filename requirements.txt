@@ -4,3 +4,5 @@ plotly
 statsmodels
 streamlit-lottie
 requests
+spotipy
+python-dotenv
