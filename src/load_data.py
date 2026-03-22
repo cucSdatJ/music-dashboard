@@ -22,6 +22,19 @@ def load_and_clean(source: str = "csv", region: str = "global") -> pd.DataFrame:
         from src.spotify_fetcher import fetch_top_charts
         print(f"🌐 Fetching live data from Spotify ({region} charts)...")
         df = fetch_top_charts(region=region)
+        if df.empty:
+            try:
+                from src.lastfm_fetcher import fetch_top_charts as lastfm_fetch
+                print(f"🟡 Falling back to Last.fm ({region} charts)...")
+                df = lastfm_fetch(region=region)
+                if not df.empty:
+                    print("   ✅ Last.fm data loaded successfully")
+            except Exception as e:
+                print(f"⚠️ Last.fm fetch error: {e}")
+        if df.empty:
+            print("🔴 All APIs failed. Using local CSV dataset.")
+            df = pd.read_csv(DATA_PATH)
+
     else:
         df = pd.read_csv(DATA_PATH)
 

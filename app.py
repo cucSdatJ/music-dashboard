@@ -205,23 +205,26 @@ st.sidebar.header("🎛️ Filters")
 
 data_source = st.sidebar.radio(
     "Data Source",
-    options=["📁 Local Dataset (13,051 songs)", "🌐 Live Spotify Charts"],
+    options=["📁 Local Dataset (13,051 songs)", "🌐 Live Charts (Spotify → Last.fm)"],
     index=0,  # default to local so the app loads fast
     help="Live mode fetches current Spotify top charts in real time"
 )
 
-if data_source == "🌐 Live Spotify Charts":
+if data_source == "🌐 Live Charts (Spotify → Last.fm)":
     region = st.sidebar.selectbox(
         "Select Region",
         options=["global", "vietnam", "us", "uk"],
         format_func=lambda x: {
-            "global": "🌍 Global Top 50",
-            "vietnam": "🇻🇳 Vietnam Top 50",
-            "us": "🇺🇸 USA Top 50",
-            "uk": "🇬🇧 UK Top 50"
+            "global": "🌍 Global",
+            "vietnam": "🇻🇳 Vietnam",
+            "us": "🇺🇸 USA",
+            "uk": "🇬🇧 UK"
         }[x]
     )
     source_param = "api"
+    st.sidebar.info( "🔄 Tries Spotify first.\n\n"
+        "If unavailable, automatically falls back to Last.fm.\n\n"
+        "If both fail, uses local dataset.")
 else:
     region = "global"
     source_param = "csv"
@@ -486,8 +489,6 @@ with tab1:
         text_auto=".3f"
     )
     fig1.update_layout(showlegend=False, xaxis_title="Popularity Group")
-    st.plotly_chart(fig1, use_container_width=True)
-
     # Chart 1B: Correlation bar chart
     # Green = positively correlated with popularity (higher = more popular)
     # Red   = negatively correlated (higher = less popular)
@@ -512,7 +513,7 @@ with tab1:
     )
     fig2.add_vline(x=0, line_dash="dash", line_color="gray")
     fig2.update_layout(yaxis_title="", xaxis_title="Pearson Correlation Coefficient")
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width='stretch')
 
     # Chart 1C: Song profiles
     # Instead of one feature at a time, this groups songs by a
@@ -529,7 +530,7 @@ with tab1:
         color_discrete_sequence=px.colors.qualitative.Set2
     )
     fig3.update_layout(showlegend=False, xaxis_title="")
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width='stretch')
 
 
 # ═══════════════════════════════════════════
@@ -563,7 +564,7 @@ with tab2:
             }
         )
         fig4.update_layout(showlegend=False, xaxis_title="")
-        st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig4, width='stretch')
 
     # Chart 2B: Major vs Minor key distribution as a pie chart
     # A pie chart works well here because we only have two categories
@@ -578,7 +579,7 @@ with tab2:
             title="Song Distribution by Key Mode",
             color_discrete_sequence=["#3498db", "#e74c3c"]
         )
-        st.plotly_chart(fig5, use_container_width=True)
+        st.plotly_chart(fig5, width='stretch')
 
     # Chart 2C: Emotional quadrants
     # This is the most theoretically grounded chart in the dashboard.
@@ -600,7 +601,7 @@ with tab2:
         color_discrete_sequence=px.colors.qualitative.Bold
     )
     fig6.update_layout(showlegend=False, xaxis_title="")
-    st.plotly_chart(fig6, use_container_width=True)
+    st.plotly_chart(fig6, width='stretch')
 
     # Chart 2D: Scatter plot — valence vs popularity
     # This is the only chart that shows every individual song rather than
@@ -626,7 +627,7 @@ with tab2:
             "song_popularity": "Popularity"
         }
     )
-    st.plotly_chart(fig7, use_container_width=True)
+    st.plotly_chart(fig7, width='stretch')
 
 
 # ═══════════════════════════════════════════
@@ -652,7 +653,7 @@ with tab3:
             color_continuous_scale="Blues"
         )
         fig8.update_layout(xaxis_title="Duration", coloraxis_showscale=False)
-        st.plotly_chart(fig8, use_container_width=True)
+        st.plotly_chart(fig8, width='stretch')
 
     # Chart 3B: Loudness vs Popularity
     # Loudness is measured in dB (decibels). Values closer to 0 are louder.
@@ -669,7 +670,7 @@ with tab3:
             color_continuous_scale="Reds"
         )
         fig9.update_layout(xaxis_title="Loudness", coloraxis_showscale=False)
-        st.plotly_chart(fig9, use_container_width=True)
+        st.plotly_chart(fig9, width='stretch')
 
     # Chart 3C: Live vs Studio
     # Spotify flags tracks with liveness > 0.8 as likely live recordings.
@@ -686,7 +687,7 @@ with tab3:
         color_discrete_sequence=["#27ae60", "#e67e22"]
     )
     fig10.update_layout(showlegend=False, xaxis_title="")
-    st.plotly_chart(fig10, use_container_width=True)
+    st.plotly_chart(fig10, width='stretch')
 
 # ─────────────────────────────────────────────
 # FOOTER
@@ -696,3 +697,11 @@ st.caption(
     "Built with Python · Streamlit · Plotly  |  "
     "Dataset: Kaggle · Spotify  |  Author: Benedict Huynh"
 )
+
+# Graceful Fallback for Live Data
+if data_source == "🌐 Live Spotify Charts":
+    st.sidebar.warning(
+        "Live Spotify data is currently unavailable "
+        "due to API restrictions. Showing local dataset instead.",
+        icon="⚠️"
+    )
