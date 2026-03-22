@@ -1,6 +1,6 @@
 # 🎵 Music Trend Dashboard
 
-> An interactive data analytics dashboard analyzing **13,051 Spotify tracks** to uncover what makes a song go viral — built with Python, Streamlit, and Plotly.
+> An interactive data analytics dashboard analyzing **13,051 Spotify tracks** to uncover what makes a song go viral — built with Python, Streamlit, and Plotly. Features a live data pipeline with multi-source fallback.
 
 🔗 **[Live Demo](https://music-dashboard-cucsdatj.streamlit.app/)** &nbsp;|&nbsp; ⭐ Star this repo if you find it useful!
 
@@ -12,25 +12,85 @@ What separates a viral song from one that nobody hears? Is it the beat, the mood
 
 This project approaches that question as a data problem. Starting from a raw dataset of 13,051 Spotify tracks, I built a full end-to-end data analytics pipeline: cleaning and validating the data, designing and running 9 targeted analyses, and presenting the findings through an interactive web dashboard that anyone can explore without writing a single line of code.
 
-The dashboard is organized around three analytical threads. The first examines the **technical DNA of viral songs** — comparing audio features like danceability, energy, and acousticness across popularity tiers to find what separates top-performing tracks from the rest. The second explores **emotion and music** — using Spotify's valence and energy scores to map songs onto emotional quadrants inspired by Russell's Circumplex Model of Affect, then testing whether emotional character predicts popularity. The third takes a **structural deep dive** into duration, loudness, and recording type to find practical patterns in what streaming listeners prefer.
+The dashboard is organized around three analytical threads. The first examines the **technical DNA of viral songs** — comparing audio features like danceability, energy, and acousticness across popularity tiers. The second explores **emotion and music** — using Spotify's valence and energy scores to map songs onto emotional quadrants inspired by Russell's Circumplex Model of Affect. The third takes a **structural deep dive** into duration, loudness, and recording type.
 
 ---
 
 ## 🔍 Key Findings
 
-These are the real insights extracted from the data — not assumed, but discovered through analysis.
+**Viral songs are significantly more danceable.** Tracks in the top popularity tier (81–100) have an average danceability of 0.699, vs 0.616 for the lowest tier — a 13% difference and the strongest structural predictor in the dataset.
 
-**Viral songs are significantly more danceable.** Tracks in the top popularity tier (81–100) have an average danceability score of 0.699, compared to 0.616 for the lowest tier — a 13% difference that was the strongest structural predictor of popularity in the dataset.
+**Sad songs outperform happy ones.** Songs with low valence averaged 49.38 in popularity vs 47.77 for upbeat songs — consistent with psychological research on the "sad music paradox."
 
-**Sad songs outperform happy ones.** Songs with low valence (sad/dark mood) averaged a popularity score of 49.38, meaningfully higher than the 47.77 average for upbeat songs. This finding aligns with psychological research on the "sad music paradox" — people frequently turn to music to process negative emotions, not just to feel good.
+**Dark and intense music dominates streaming.** "Sad & Slow" and "Dark & Intense" rank first and second in average popularity across the four emotional quadrants, while "Happy & Calm" ranks last at 44.74.
 
-**Dark and intense music dominates streaming.** When songs are classified into four emotional quadrants (combining energy and valence axes), "Sad & Slow" and "Dark & Intense" tracks rank first and second in average popularity, while "Happy & Calm" ranks last at 44.74. The stereotype that pop music is universally upbeat does not hold in this data.
+**The sweet spot for song length is 3–5 minutes.** Both brackets average ~49.4 in popularity, while tracks under 2 minutes or over 5 minutes underperform.
 
-**The sweet spot for song length is 3–5 minutes.** Songs in the 3–4 minute and 4–5 minute brackets both average around 49.4 in popularity, while tracks shorter than 2 minutes or longer than 5 minutes underperform — consistent with radio and streaming industry norms.
+**Louder masters perform better.** Songs above -5 dB average 50.72 in popularity vs 45.58 for moderate-loudness tracks — supporting the "loudness war" trend in modern production.
 
-**Louder masters perform better.** Songs with loudness above -5 dB average a popularity of 50.72, while moderate-loudness tracks (-20 to -10 dB) average only 45.58. This supports the well-documented "loudness war" trend in modern music production.
+**No single feature predicts popularity on its own.** The highest Pearson correlation was only 0.051 (danceability). Viral success is multidimensional and cannot be reduced to a single formula.
 
-**No single feature predicts popularity on its own.** The highest Pearson correlation between any audio feature and popularity was only 0.051 (danceability). This finding is itself meaningful: viral success is multidimensional and cannot be reduced to a single formula.
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     app.py (UI Layer)                   │
+│         Streamlit dashboard · Plotly charts             │
+│         Sidebar filters · Animated metric cards         │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────┐
+│               src/queries.py (Analysis Layer)           │
+│         9 analytical functions · Correlation            │
+│         Emotional quadrants · Song profiles             │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────┐
+│              src/load_data.py (Data Layer)              │
+│     Cleaning · Validation · Feature engineering         │
+│     Source routing: CSV → Spotify → Last.fm             │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────┐
+│                    Data Sources                         │
+│    🟢 Spotify API → 🟡 Last.fm API → 🔴 Local CSV       │
+│           (multi-source fallback pipeline)              │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔄 Live Data Pipeline
+
+The dashboard supports three data sources with **automatic cascading fallback**:
+
+```
+User selects "Live Charts"
+        │
+        ▼
+🟢 Try Spotify API
+        │ fail (401 API restriction)
+        ▼
+🟡 Try Last.fm API
+        │ fail (502 server error)
+        ▼
+🔴 Fall back to Local CSV
+        │
+        ▼
+Dashboard always renders ✅
+```
+
+This **graceful degradation** pattern ensures the dashboard never crashes due to external API failures. The terminal log shows exactly which source was used and why any fallback occurred.
+
+---
+
+## ⚠️ Known API Restrictions (as of March 2026)
+
+**Spotify API:** In late 2024, Spotify restricted editorial playlist access and tightened rate limits for apps in Development Mode. The `playlist_items()` endpoint for official playlists (e.g. Top 50 Global) now requires user-level authentication (Authorization Code Flow) rather than Client Credentials Flow, returning `401 Valid user authentication required`. The Search API also enforces stricter limits in Development Mode. Resolving this fully requires either applying for Extended Quota Mode or implementing Authorization Code Flow with PKCE.
+
+**Last.fm API:** Last.fm is generally more permissive but occasionally returns `502 Bad Gateway` during periods of server instability. These are transient and resolve on retry. Importantly, Last.fm does not provide Spotify-style audio features (danceability, energy, valence, etc.) — only play counts and user-generated tags. In Last.fm mode, popularity rankings reflect real chart data, but audio feature charts use dataset population averages as placeholders and should not be interpreted as per-track measurements.
 
 ---
 
@@ -38,14 +98,17 @@ These are the real insights extracted from the data — not assumed, but discove
 
 | Layer | Tool | Purpose |
 |---|---|---|
-| Data source | Kaggle (Spotify Tracks Dataset) | Raw data |
-| Data cleaning | Python, Pandas | EDA, validation, feature engineering |
-| Analysis | Pandas, NumPy | Groupby aggregations, correlation analysis |
+| Data source (static) | Kaggle Spotify Tracks Dataset | Core analysis dataset |
+| Data source (live) | Spotify Web API + spotipy | Live chart data |
+| Data source (fallback) | Last.fm API + pylast | Fallback live chart data |
+| Data cleaning | Python, Pandas | Validation, feature engineering |
+| Analysis | Pandas, NumPy | Groupby, correlation, classification |
 | Visualization | Plotly Express | Interactive charts |
 | Dashboard | Streamlit | Web application framework |
-| Animations | CSS keyframes, JavaScript, streamlit-lottie | UI effects |
-| Statistical modeling | statsmodels | OLS trendline on scatter plot |
-| Deployment | Streamlit Cloud | Free public hosting |
+| Animations | CSS keyframes, JS, streamlit-lottie | UI effects |
+| Statistical modeling | statsmodels | OLS trendline |
+| Environment | python-dotenv | Secure API key handling |
+| Deployment | Streamlit Cloud | Public hosting |
 | Version control | Git, GitHub | Source control |
 
 ---
@@ -56,48 +119,34 @@ These are the real insights extracted from the data — not assumed, but discove
 music-dashboard/
 │
 ├── data/
-│   └── song_data.csv           # Raw dataset (13,051 Spotify tracks)
+│   └── song_data.csv                  # Raw dataset (13,051 tracks)
 │
 ├── notebooks/
-│   └── data_exploration.ipynb  # EDA and function testing
+│   └── data_exploration.ipynb      # EDA and function testing
 │
 ├── src/
-│   ├── load_data.py            # Data cleaning and feature engineering
-│   └── queries.py              # All 9 analysis functions
+│   ├── load_data.py                   # Data acquisition, cleaning, routing
+│   ├── queries.py                     # 9 analytical functions
+│   ├── spotify_fetcher.py             # Spotify API integration
+│   └── lastfm_fetcher.py             # Last.fm API fallback
 │
-├── app.py                      # Streamlit dashboard (main entry point)
-├── requirements.txt            # Python dependencies
+├── app.py                             # Streamlit dashboard entry point
+├── requirements.txt                   # Python dependencies
+├── .env                               # API keys (NOT committed to Git)
+├── .gitignore
 └── README.md
 ```
-
-The architecture follows a **separation of concerns** principle: `load_data.py` handles all data validation and cleaning, `queries.py` contains pure analytical logic, and `app.py` is responsible only for rendering. This means each layer can be tested, modified, or replaced independently.
-
----
-
-## 📊 Dashboard Features
-
-The dashboard has three tabs, each telling a different chapter of the same story.
-
-**Viral Song DNA** contains an interactive bar chart where users can select any audio feature and compare its average across all four popularity tiers, a horizontal correlation chart colored by direction (green = positive, red = negative), and a song profile comparison that groups tracks into archetypes like "Club Banger" and "Acoustic Chill."
-
-**Emotion & Music** contains a Happy vs Sad popularity comparison, a Major vs Minor key distribution pie chart, the four emotional quadrant analysis, and a scatter plot of all 2,000 sampled songs with an OLS regression trendline to visualize correlation strength visually.
-
-**Deep Dive** contains duration bracket analysis, loudness level analysis, and a live vs studio recording comparison.
-
-All charts respond to **two global sidebar filters** — popularity range and energy range — so the viewer can dynamically narrow the dataset and watch every chart update simultaneously.
 
 ---
 
 ## ⚙️ Setup & Installation
-
-To run this project locally, clone the repository and set up a Python virtual environment.
 
 ```bash
 # Clone the repo
 git clone https://github.com/cucSdatJ/music-dashboard.git
 cd music-dashboard
 
-# Create and activate a virtual environment
+# Create and activate virtual environment
 python -m venv venv
 venv\Scripts\activate        # Windows
 # source venv/bin/activate   # Mac/Linux
@@ -105,33 +154,38 @@ venv\Scripts\activate        # Windows
 # Install dependencies
 pip install -r requirements.txt
 
+# Optional: set up API keys in a .env file
+# SPOTIFY_CLIENT_ID=your_id
+# SPOTIFY_CLIENT_SECRET=your_secret
+# LASTFM_API_KEY=your_key
+
 # Run the dashboard
-streamlit run app.py
+python -m streamlit run app.py
 ```
 
-The dashboard will open automatically at `http://localhost:8501`.
-
----
-
-## 📈 Analysis Functions (`src/queries.py`)
-
-Each of the 9 analysis functions is documented with its analytical intent. Here is a summary of what each one answers.
-
-`feature_comparison_by_group` answers: do viral songs have measurably different audio profiles than unpopular ones? `valence_vs_popularity` answers: do happy songs outperform sad songs on streaming? `duration_vs_popularity` answers: is there an optimal song length for popularity? `correlation_with_popularity` answers: which single feature has the strongest linear relationship with popularity? `loudness_vs_popularity` answers: does the loudness war hypothesis hold in this dataset? `liveness_vs_popularity` answers: do listeners prefer studio recordings over live ones? `mode_vs_popularity` answers: does major vs minor key affect popularity? `emotional_quadrant_analysis` answers: which of the four emotional archetypes (based on Russell's model) performs best? `song_profile_analysis` answers: do songs with a clear, strong sonic identity outperform mixed-profile tracks?
+The dashboard runs fully without API keys — simply select "Local Dataset" in the sidebar.
 
 ---
 
 ## 💡 What I Learned
 
-This project taught me that the hardest part of data analysis is not writing code — it is asking the right questions before writing any code at all. The most interesting findings (the sad music paradox, the emotional quadrant rankings) came from questions I designed deliberately, not from running generic statistics on every column.
+The hardest part of data analysis is not writing code — it is asking the right questions before opening the dataset. The most interesting findings came from questions designed deliberately, not from running generic statistics on every column.
 
-I also learned the difference between a number and an insight. A correlation of 0.051 between danceability and popularity is a number. The insight is that no single feature predicts viral success, which means trying to engineer a hit song by optimizing one variable at a time is fundamentally the wrong strategy.
+Building the live data pipeline taught an equally important engineering lesson: external APIs fail, and good systems handle failure gracefully. The cascading fallback pattern means the dashboard always serves the user, regardless of what any third-party service is doing. This is production-ready thinking, not just portfolio thinking.
 
 ---
 
 ## 🔮 Future Improvements
 
-Given more time and data, there are three directions I would explore. First, integrating live data from the Spotify API to replace the static CSV with a real-time pipeline that updates daily. Second, building a simple ML model (Random Forest or XGBoost) to predict popularity from audio features, which would let me quantify feature importance more rigorously than Pearson correlation allows. Third, adding artist and genre dimensions — the current dataset lacks those columns, which limits the depth of segmentation possible.
+**Data enrichment.** Adding artist and genre columns would enable segmented analysis — the formula for a viral hip-hop track likely differs significantly from pop, and the current aggregate view masks those differences.
+
+**Time-series tracking.** The most valuable capability live data could provide is not a today's chart snapshot, but a historical record of popularity over time. A scheduled ETL job (GitHub Actions + PostgreSQL) that pulls and stores daily chart data would enable questions no static CSV can answer: "how long do songs stay in the top 50?", "which songs rise fastest?"
+
+**Resolve Spotify API restrictions.** Implementing Authorization Code Flow with PKCE would restore access to editorial playlist data and enable per-user personalization features currently blocked by the Development Mode restrictions.
+
+**Predictive modeling.** A Random Forest or XGBoost model would provide feature importance scores capturing non-linear relationships that Pearson correlation misses. Given the weak correlations already found, the expected prediction accuracy is intentionally modest — the feature importance output is the valuable artifact, not the predictions.
+
+**Artist fame as a control variable.** Artist popularity is likely a major confounding variable — a mediocre song by a famous artist will outscore a great song by an unknown one. Controlling for this would significantly improve the analytical rigor of every finding in the current dashboard.
 
 ---
 
@@ -145,4 +199,4 @@ Interested in Data Analytics, Data Engineering, and Software Engineering roles.
 
 ---
 
-*Built with Python · Streamlit · Plotly · Dataset: Kaggle Spotify Tracks*
+*Built with Python · Streamlit · Plotly · Spotify API · Last.fm API · Dataset: Kaggle Spotify Tracks*
