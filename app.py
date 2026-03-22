@@ -178,11 +178,7 @@ h1 {
 # the user interacts with a slider or dropdown. With it, the cleaned
 # dataframe is stored in memory and reused across interactions.
 # ─────────────────────────────────────────────
-@st.cache_data
-def get_data():
-    return load_and_clean()
 
-df = get_data()
 
 # ─────────────────────────────────────────────
 # HEADER
@@ -206,6 +202,37 @@ with header_right:
 # the data to a specific subset and watch all charts update at once.
 # ─────────────────────────────────────────────
 st.sidebar.header("🎛️ Filters")
+
+data_source = st.sidebar.radio(
+    "Data Source",
+    options=["📁 Local Dataset (13,051 songs)", "🌐 Live Spotify Charts"],
+    index=0,  # default to local so the app loads fast
+    help="Live mode fetches current Spotify top charts in real time"
+)
+
+if data_source == "🌐 Live Spotify Charts":
+    region = st.sidebar.selectbox(
+        "Select Region",
+        options=["global", "vietnam", "us", "uk"],
+        format_func=lambda x: {
+            "global": "🌍 Global Top 50",
+            "vietnam": "🇻🇳 Vietnam Top 50",
+            "us": "🇺🇸 USA Top 50",
+            "uk": "🇬🇧 UK Top 50"
+        }[x]
+    )
+    source_param = "api"
+else:
+    region = "global"
+    source_param = "csv"
+
+#load data
+@st.cache_data(ttl=3600)
+def get_data(source, region):
+    return load_and_clean(source=source, region=region)
+
+df = get_data(source_param, region)
+
 
 # Popularity range filter
 popularity_range = st.sidebar.slider(
